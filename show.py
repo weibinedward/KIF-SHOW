@@ -1,7 +1,47 @@
 import os
 import pandas as pd
-import TA as ta
 import streamlit as st
+
+def calculate_bb(df, column='Last', window=20):
+    """Calculate Bollinger Bands."""
+    rolling_mean = df[column].rolling(window).mean()
+    rolling_std = df[column].rolling(window).std()
+
+    df['Upper'] = rolling_mean + (2 * rolling_std)
+    df['Middle'] = rolling_mean
+    df['Lower'] = rolling_mean - (2 * rolling_std)
+    return df
+
+def calculate_macd(df, column='Last', fastperiod=12, slowperiod=26, signalperiod=9):
+    """Calculate MACD."""
+    df['EMA_Fast'] = df[column].ewm(span=fastperiod).mean()
+    df['EMA_Slow'] = df[column].ewm(span=slowperiod).mean()
+    df['MACD'] = df['EMA_Fast'] - df['EMA_Slow']
+    df['Signal'] = df['MACD'].ewm(span=signalperiod).mean()
+    df['Hist'] = df['MACD'] - df['Signal']
+    return df
+
+def calculate_adx(df, column_high='High', column_low='Low', column_last='Last', window=14):
+    """Calculate ADX."""
+    df['TR'] = df[[f'{column_high}', f'{column_last}']].diff().abs().max(axis=1)
+    df['TR'] = df[['TR', f'{column_high}']].diff().abs().max(axis=1)
+    df['TR'] = df[['TR', f'{column_low}']].diff().abs().max(axis=1)
+    df['TR'] = df['TR'].rolling(window).sum()
+
+    df['+DM'] = df[column_high].diff()
+    df['+DM'].where(df['+DM'] > 0, 0.0, inplace=True)
+    df['-DM'] = -df[column_low].diff()
+    df['-DM'].where(df['-DM'] > 0, 0.0, inplace=True)
+
+    df['+DI'] = (df['+DM'] / df['TR']).rolling(window).mean()
+    df['-DI'] = (df['-DM'] / df['TR']).rolling(window).mean()
+
+    df['DX'] = (df['+DI'] - df['-DI']).abs() / (df['+DI'] + df['-DI'])
+    df['DX'].fillna(0, inplace=True)
+    df['DX'] = df['DX'].rolling(window).mean()
+
+    df['ADX'] = df['DX'].rolling(window).mean()
+    return df
 
 def generate_technical_analysis_report(stock):
     # Read CSV data
@@ -12,13 +52,9 @@ def generate_technical_analysis_report(stock):
     df = df.iloc[::-1]
 
     # Calculate indicators
-    df['Upper'], df['Middle'], df['Lower'] = ta.BBANDS(df['Last'], timeperiod=20)
-    df['MACD'], df['Signal'], df['Hist'] = ta.MACD(df['Last'], fastperiod=12, slowperiod=26, signalperiod=9)
-    df['ADX'] = ta.ADX(df['High'], df['Low'], df['Last'], timeperiod=14)
-    df['DI+'] = ta.PLUS_DI(df['High'], df['Low'], df['Last'], timeperiod=14)
-    df['DI-'] = ta.MINUS_DI(df['High'], df['Low'], df['Last'], timeperiod=14)
-
-
+    df = calculate_bb(df)
+    df = calculate_macd(df)
+    df = calculate_adx(df)
 
     # Generate technical analysis report
     report = f"Technical Analysis Report for Stock: {stock}\n\n"
@@ -60,8 +96,8 @@ def generate_technical_analysis_report(stock):
 
     ## ADX Analysis
     adx = df['ADX'].values[-1]
-    di_plus = df['DI+'].values[-1]
-    di_minus = df['DI-'].values[-1]
+    di_plus = df['+DI'].values[-1]
+    di_minus = df['-DI'].values[-1]
     if adx > 25:
         report += "Trend Analysis (ADX): The ADX value is above 25, indicating a strong trend in the market.\n"
         if di_plus > di_minus:
@@ -72,8 +108,6 @@ def generate_technical_analysis_report(stock):
         report += "Trend Analysis (ADX): The ADX value is below 25, indicating a weak or no trend in the market.\n"
 
     return report
-
-
 @st.cache_data(show_spinner=False)
 def load_chart_html(stock):
     # Set the path for the chart HTML file
