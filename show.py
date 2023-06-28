@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-import talib
+import TA as ta
 import streamlit as st
 
 def generate_technical_analysis_report(stock):
@@ -12,11 +12,13 @@ def generate_technical_analysis_report(stock):
     df = df.iloc[::-1]
 
     # Calculate indicators
-    df['Upper'], df['Middle'], df['Lower'] = talib.BBANDS(df['Last'].values, timeperiod=20)
-    df['MACD'], df['Signal'], df['Hist'] = talib.MACD(df['Last'].values, fastperiod=12, slowperiod=26, signalperiod=9)
-    df['ADX'] = talib.ADX(df['High'].values, df['Low'].values, df['Last'].values, timeperiod=14)
-    df['DI+'] = talib.PLUS_DI(df['High'].values, df['Low'].values, df['Last'].values, timeperiod=14)
-    df['DI-'] = talib.MINUS_DI(df['High'].values, df['Low'].values, df['Last'].values, timeperiod=14)
+    df['Upper'], df['Middle'], df['Lower'] = ta.BBANDS(df['Last'], timeperiod=20)
+    df['MACD'], df['Signal'], df['Hist'] = ta.MACD(df['Last'], fastperiod=12, slowperiod=26, signalperiod=9)
+    df['ADX'] = ta.ADX(df['High'], df['Low'], df['Last'], timeperiod=14)
+    df['DI+'] = ta.PLUS_DI(df['High'], df['Low'], df['Last'], timeperiod=14)
+    df['DI-'] = ta.MINUS_DI(df['High'], df['Low'], df['Last'], timeperiod=14)
+
+
 
     # Generate technical analysis report
     report = f"Technical Analysis Report for Stock: {stock}\n\n"
