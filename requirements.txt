@@ -1,4 +1,6 @@
 streamlit
 pandas
 numpy
-ta-lib
+--upgrade pip
+TA-Lib
+
